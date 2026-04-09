@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 TOKEN_FILE = "token.txt"
-LLM_BASE_URL = "http://127.0.0.1:1234/v1"
-LLM_API_KEY = "local"
+LLM_BASE_URL = "https://openrouter.ai/api/v1"
+MODEL = "z-ai/glm-4.5-air:free"
 SYSTEM_PROMPT = (
     "You are a dedicated and practical Python developer named VelarixDev. "
     "Write a direct, professional proposal for the following freelance job description. "
@@ -41,7 +41,20 @@ class JobStates(StatesGroup):
 async def get_token():
     try:
         with open(TOKEN_FILE, "r") as f:
-            return f.read().strip()
+            return f.readline().strip()
+    except FileNotFoundError:
+        logger.error(f"Error: {TOKEN_FILE} not found.")
+        sys.exit(1)
+
+async def get_llm_api_key():
+    try:
+        with open(TOKEN_FILE, "r") as f:
+            lines = f.readlines()
+            if len(lines) >= 2:
+                return lines[1].strip()
+            else:
+                logger.error("LLM API key not found in token.txt (second line missing).")
+                sys.exit(1)
     except FileNotFoundError:
         logger.error(f"Error: {TOKEN_FILE} not found.")
         sys.exit(1)
@@ -56,6 +69,7 @@ def get_regeneration_keyboard():
 
 async def main():
     token = await get_token()
+    llm_api_key = await get_llm_api_key()
     if not token:
         logger.error("Token is empty. Check your token.txt file.")
         return
@@ -67,7 +81,7 @@ async def main():
     # Initialize OpenAI client for local LLM
     client = AsyncOpenAI(
         base_url=LLM_BASE_URL,
-        api_key=LLM_API_KEY
+        api_key=llm_api_key
     )
 
     @dp.message()
@@ -85,7 +99,7 @@ async def main():
         try:
             # 2. Request from local LLM
             response = await client.chat.completions.create(
-                model="gemma-4-26b-a4b-it",
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": message.text}
@@ -132,7 +146,7 @@ async def main():
         # 3. Make new request with calculated temperature
         try:
             response = await client.chat.completions.create(
-                model="gemma-4-26b-a4b-it",
+                model=MODEL,
                 messages=[
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": job_text}
