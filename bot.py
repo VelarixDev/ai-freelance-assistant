@@ -4,6 +4,7 @@ import sys
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
+from aiogram.types import Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.utils.keyboard import InlineKeyboardBuilder
@@ -62,7 +63,7 @@ async def get_llm_api_key():
 def get_regeneration_keyboard():
     builder = InlineKeyboardBuilder()
     builder.row(types.InlineKeyboardButton(
-        text="🔄 Сгенерировать другой вариант", 
+        text="🔄 Generate another variant", 
         callback_data="regenerate"
     ))
     return builder.as_markup()
@@ -84,9 +85,20 @@ async def main():
         api_key=llm_api_key
     )
 
+    @dp.message(CommandStart())
+    async def cmd_start(message: Message):
+        await message.answer(
+            "👋 Hello! I'm a bot that helps write proposals for freelance jobs. "
+            "Send me a job description and I'll generate a professional response for you."
+        )
+
     @dp.message()
     async def handle_message(message: types.Message, state: FSMContext):
         if not message.text:
+            return
+
+        # Skip /start command to avoid LLM processing
+        if message.text == "/start":
             return
 
         # Save job text and initial temperature to state
@@ -94,7 +106,7 @@ async def main():
         await state.set_state(JobStates.waiting_for_job)
 
         # 1. Send initial status message
-        await message.answer("⏳ Анализирую заказ и пишу отклик...")
+        await message.answer("⏳ Analyzing the order and writing a proposal...")
 
         try:
             # 2. Request from local LLM
@@ -114,7 +126,7 @@ async def main():
 
         except Exception as e:
             logger.error(f"Error during LLM request: {e}")
-            await message.answer(f"❌ Произошла ошибка при обращении к нейросети: {str(e)}")
+            await message.answer(f"❌ An error occurred while contacting the AI model: {str(e)}")
 
     @dp.callback_query(F.data == 'regenerate')
     async def handle_regeneration(callback: CallbackQuery, state: FSMContext):
@@ -124,7 +136,7 @@ async def main():
         current_temp = data.get("current_temp", 0.7)
 
         if not job_text:
-            await callback.answer("Ошибка: текст не найден", show_alert=True)
+            await callback.answer("Error: text not found", show_alert=True)
             return
 
         # Calculate new temperature logic
@@ -137,10 +149,10 @@ async def main():
 
         # 2. Update message to loading status (removing buttons)
         try:
-            await callback.message.edit_text("⏳ Переписываю отклик...")
+            await callback.message.edit_text("⏳ Rewriting the proposal...")
         except Exception as e:
             logger.error(f"Error editing message for loading: {e}")
-            await callback.answer("Ошибка при обновлении сообщения")
+            await callback.answer("Error while updating the message")
             return
 
         # 3. Make new request with calculated temperature
@@ -163,12 +175,12 @@ async def main():
             )
         except Exception as e:
             logger.error(f"Error during regeneration request: {e}")
-            await callback.message.edit_text(f"❌ Ошибка при генерации нового варианта: {str(e)}")
+            await callback.message.edit_text(f"❌ Error generating a new variant: {str(e)}")
         finally:
             # 5. Always answer the callback
             await callback.answer()
 
-    logger.info("Bot is starting...")
+    logger.info("Bot is starting up...")
     try:
         await dp.start_polling(bot)
     except Exception as e:
