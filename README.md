@@ -22,4 +22,7 @@ sk-or-v1-abcdef1234567890...
 Tokens and sensitive keys are managed via local environments and are strictly excluded from the repository via .gitignore.
 
 ---
+
+### Here is an example of how the bot works:
+<img width="1173" height="986" alt="Screenshot 2026-04-21 231244" src="https://github.com/user-attachments/assets/2dd4be30-f156-4c23-b911-562628521dd0" />
 *Developed by[VelarixDev](https://github.com/VelarixDev)*
